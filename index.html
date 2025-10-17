@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BUDI Petrol Subsidy Calculator</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BUDI Subsidy Calculator</title>
+
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#007bff"/>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta name="theme-color" content="#007bff">
 
   <style>
     body {
@@ -15,36 +15,30 @@
       margin: 0;
       padding: 0;
     }
-    h1 {
+    h1, h2 {
       text-align: center;
       color: #007bff;
-      padding-top: 10px;
     }
     .navbar {
       display: flex;
       justify-content: space-around;
       background: #007bff;
+      padding: 12px 0;
       color: white;
-      position: fixed;
+      font-weight: bold;
+      position: sticky;
       bottom: 0;
       width: 100%;
-      border-top: 1px solid #0056b3;
     }
-    .nav-item {
-      flex: 1;
-      text-align: center;
-      padding: 12px 0;
+    .navbar div {
       cursor: pointer;
     }
-    .nav-item.active {
-      background: #0056b3;
-      font-weight: bold;
+    .active {
+      text-decoration: underline;
     }
     .page {
       display: none;
       padding: 20px;
-      max-width: 480px;
-      margin: 0 auto 60px auto;
     }
     .active-page {
       display: block;
@@ -54,7 +48,8 @@
       padding: 20px;
       border-radius: 12px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
+      max-width: 450px;
+      margin: 20px auto;
     }
     label {
       display: block;
@@ -84,22 +79,31 @@
     .secondary:hover { background: #5a6268; }
     .danger { background: #dc3545; }
     .danger:hover { background: #b02a37; }
-    .history-entry {
-      background: #fff;
+    .result, .history-entry {
+      margin-top: 15px;
+      background: #e9ecef;
       padding: 10px;
-      margin-top: 8px;
-      border-radius: 8px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-      font-size: 14px;
+      border-radius: 6px;
+    }
+    canvas {
+      max-width: 350px;
+      margin: 0 auto;
+      display: block;
     }
   </style>
 </head>
-
 <body>
-  <h1>BUDI Subsidy PWA</h1>
+  <h1>BUDI Subsidy Calculator</h1>
 
-  <!-- Calculator Page -->
-  <div id="page-calculator" class="page active-page">
+  <!-- ===== NAVBAR ===== -->
+  <div class="navbar">
+    <div id="navCalc" class="active" onclick="switchPage('calc')">🧮 Calculator</div>
+    <div id="navSummary" onclick="switchPage('summary')">📊 Summary</div>
+    <div id="navHistory" onclick="switchPage('history')">🧾 History</div>
+  </div>
+
+  <!-- ===== CALCULATOR PAGE ===== -->
+  <div id="calc" class="page active-page">
     <div class="card">
       <label>Petrol Station</label>
       <select id="station">
@@ -116,29 +120,29 @@
       </select>
 
       <label>Opening Balance (L)</label>
-      <input type="number" id="openingBalance" readonly step="0.01">
+      <input type="number" id="openingBalance" readonly>
 
-      <label>Liters Used (Optional)</label>
-      <input type="number" id="litersUsed" placeholder="Leave blank to auto-calc" step="0.01">
+      <label>Liters Used (L)</label>
+      <input type="number" id="litersUsed" placeholder="optional" step="0.01">
 
-      <label>Amount Paid (RM)*</label>
-      <input type="number" id="amountPaid" placeholder="e.g. 10" step="0.01">
+      <label>Amount Paid (RM)</label>
+      <input type="number" id="amountPaid" placeholder="required" step="0.01">
 
       <button onclick="calculate()">Calculate</button>
       <button class="secondary" onclick="clearInputs()">Clear Input</button>
       <button class="danger" onclick="resetQuota()">Reset Quota (300L)</button>
 
-      <div id="result" class="card" style="background:#e9ecef;margin-top:15px;"></div>
+      <div id="result" class="result"></div>
     </div>
   </div>
 
-  <!-- Summary Page -->
-  <div id="page-summary" class="page">
+  <!-- ===== SUMMARY PAGE ===== -->
+  <div id="summary" class="page">
+    <h2>📊 Monthly Summary</h2>
     <div class="card">
-      <h3>📊 Summary</h3>
-      <label>Filter by Station:</label>
-      <select id="filterStation" onchange="renderSummary()">
-        <option value="ALL">ALL</option>
+      <label>Filter by Petrol Station</label>
+      <select id="filterStation" onchange="updateSummary()">
+        <option value="">All Stations</option>
         <option>PETRONAS</option>
         <option>SHELL</option>
         <option>PETRON</option>
@@ -149,27 +153,20 @@
         <option>XCELL</option>
         <option>OTHERS</option>
       </select>
-      <div id="summaryContent" style="margin-top:10px;"></div>
-      <canvas id="summaryChart" style="margin-top:15px;"></canvas>
-      <button class="secondary" onclick="downloadHistory()">Download CSV</button>
+      <canvas id="summaryChart"></canvas>
+      <div id="summaryText" class="result"></div>
     </div>
   </div>
 
-  <!-- History Page -->
-  <div id="page-history" class="page">
-    <div class="card">
-      <h3>⛽ History Log</h3>
-      <div id="historyList"></div>
-      <button class="secondary" onclick="clearHistory()">Clear History</button>
-    </div>
+  <!-- ===== HISTORY PAGE ===== -->
+  <div id="history" class="page">
+    <h2>🧾 Transaction History</h2>
+    <div id="historyList"></div>
+    <button class="secondary" onclick="clearHistory()">Clear History</button>
   </div>
 
-  <!-- Navbar -->
-  <div class="navbar">
-    <div class="nav-item active" onclick="switchPage('calculator', this)">Calculator</div>
-    <div class="nav-item" onclick="switchPage('summary', this)">Summary</div>
-    <div class="nav-item" onclick="switchPage('history', this)">History</div>
-  </div>
+  <!-- ✅ Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
     const SUBSIDIZED_PRICE = 1.99;
@@ -178,36 +175,38 @@
 
     let currentBalance = parseFloat(localStorage.getItem('budi_balance')) || QUOTA;
     let history = JSON.parse(localStorage.getItem('budi_history')) || [];
-    let summaryChart = null;
 
     document.getElementById('openingBalance').value = currentBalance.toFixed(2);
-    renderHistory();
-    renderSummary();
 
-    // ===== Calculator Logic =====
+    // Navigation
+    function switchPage(pageId) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+      document.getElementById(pageId).classList.add('active-page');
+      document.querySelectorAll('.navbar div').forEach(n => n.classList.remove('active'));
+      document.getElementById('nav' + pageId.charAt(0).toUpperCase() + pageId.slice(1)).classList.add('active');
+      if (pageId === 'history') renderHistory();
+      if (pageId === 'summary') updateSummary();
+    }
+
+    // Calculator
     function calculate() {
       const station = document.getElementById('station').value;
       const opening = currentBalance;
-      const usedInput = parseFloat(document.getElementById('litersUsed').value);
-      const paid = parseFloat(document.getElementById('amountPaid').value);
+      const usedInput = document.getElementById('litersUsed').value;
+      const paid = parseFloat(document.getElementById('amountPaid').value) || 0;
 
-      if (!paid || paid <= 0) {
-        alert("Please enter amount paid.");
-        return;
-      }
-      if (!station) {
-        alert("Please select petrol station.");
-        return;
-      }
+      if (!station) return alert("Please select petrol station.");
+      if (paid <= 0) return alert("Please enter amount paid.");
 
-      let used = usedInput;
-      if (isNaN(used)) {
-        let pricePerLiter = opening > 0 ? SUBSIDIZED_PRICE : MARKET_PRICE;
-        used = paid / pricePerLiter;
+      let used = parseFloat(usedInput);
+      if (!used || used <= 0) {
+        // Auto-calculate liters if not provided
+        used = paid / SUBSIDIZED_PRICE;
       }
 
-      const balanceAfter = Math.max(opening - used, 0);
       const withinQuota = Math.min(used, opening);
+      const balanceAfter = Math.max(opening - used, 0);
+
       const totalNoSubsidy = used * MARKET_PRICE;
       const subsidyAmount = withinQuota * (MARKET_PRICE - SUBSIDIZED_PRICE);
       const totalWithSubsidy = totalNoSubsidy - subsidyAmount;
@@ -217,30 +216,23 @@
       document.getElementById('openingBalance').value = currentBalance.toFixed(2);
 
       document.getElementById('result').innerHTML = `
-        <b>Results:</b><br>
-        Station: ${station}<br>
-        Liters Used: ${used.toFixed(2)} L<br>
+        <b>${station}</b><br>
         Without Subsidy: RM ${totalNoSubsidy.toFixed(2)}<br>
         Subsidy: RM ${subsidyAmount.toFixed(2)}<br>
-        Total After Subsidy: RM ${totalWithSubsidy.toFixed(2)}<br>
+        Total (After Subsidy): RM ${totalWithSubsidy.toFixed(2)}<br>
         You Paid: RM ${paid.toFixed(2)}<br>
-        <hr>Remaining Quota: ${balanceAfter.toFixed(2)} L
+        <hr>
+        Remaining Quota: ${balanceAfter.toFixed(2)} L
       `;
 
       const record = {
         date: new Date().toLocaleString(),
-        station,
-        used,
-        paid,
-        totalNoSubsidy,
-        subsidyAmount,
-        totalWithSubsidy,
-        balanceAfter
+        station, used, paid,
+        totalNoSubsidy, subsidyAmount, totalWithSubsidy, balanceAfter
       };
+
       history.unshift(record);
       localStorage.setItem('budi_history', JSON.stringify(history));
-      renderHistory();
-      renderSummary();
     }
 
     function clearInputs() {
@@ -251,28 +243,30 @@
     }
 
     function resetQuota() {
-      if (confirm('Reset quota back to 300L?')) {
+      if (confirm("Reset your quota to 300L?")) {
         currentBalance = QUOTA;
         localStorage.setItem('budi_balance', currentBalance);
         document.getElementById('openingBalance').value = currentBalance.toFixed(2);
-        alert('Quota reset to 300L');
+        alert("Quota reset to 300L.");
       }
     }
 
-    // ===== History =====
+    // History
     function renderHistory() {
       const container = document.getElementById('historyList');
-      container.innerHTML = history.length === 0 ? "<i>No history yet.</i>" : "";
-      history.forEach((item) => {
+      container.innerHTML = '';
+      if (history.length === 0) {
+        container.innerHTML = '<i>No history yet.</i>';
+        return;
+      }
+      history.forEach(item => {
         const div = document.createElement('div');
         div.className = 'history-entry';
         div.innerHTML = `
           <b>${item.station}</b> — ${item.date}<br>
           Used: ${item.used.toFixed(2)}L | Paid: RM ${item.paid.toFixed(2)}<br>
-          Total (No Subsidy): RM ${item.totalNoSubsidy.toFixed(2)}<br>
-          Subsidy: RM ${item.subsidyAmount.toFixed(2)}<br>
-          After Subsidy: RM ${item.totalWithSubsidy.toFixed(2)}<br>
-          Remaining Quota: ${item.balanceAfter.toFixed(2)}L
+          Subsidy: RM ${item.subsidyAmount.toFixed(2)} | After Subsidy: RM ${item.totalWithSubsidy.toFixed(2)}<br>
+          Remaining: ${item.balanceAfter.toFixed(2)}L
         `;
         container.appendChild(div);
       });
@@ -283,78 +277,48 @@
         history = [];
         localStorage.removeItem('budi_history');
         renderHistory();
-        renderSummary();
       }
     }
 
-    function downloadHistory() {
-      if (history.length === 0) {
-        alert("No history to download.");
-        return;
-      }
-      let csv = "Date,Station,Liters Used,Paid (RM),No Subsidy (RM),Subsidy (RM),After Subsidy (RM),Remaining Quota (L)\n";
-      history.forEach(h => {
-        csv += `${h.date},${h.station},${h.used.toFixed(2)},${h.paid.toFixed(2)},${h.totalNoSubsidy.toFixed(2)},${h.subsidyAmount.toFixed(2)},${h.totalWithSubsidy.toFixed(2)},${h.balanceAfter.toFixed(2)}\n`;
-      });
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = "budi_history.csv";
-      link.click();
-    }
+    // Summary
+    let chart;
+    function updateSummary() {
+      const stationFilter = document.getElementById('filterStation').value;
+      const filtered = stationFilter ? history.filter(h => h.station === stationFilter) : history;
 
-    // ===== Summary =====
-    function renderSummary() {
-      const filter = document.getElementById('filterStation').value;
-      const filtered = filter === "ALL" ? history : history.filter(h => h.station === filter);
-      const summary = document.getElementById('summaryContent');
+      const totalUsed = filtered.reduce((a,b) => a + b.used, 0);
+      const totalPaid = filtered.reduce((a,b) => a + b.paid, 0);
+      const totalSubsidy = filtered.reduce((a,b) => a + b.subsidyAmount, 0);
+      const totalAfter = filtered.reduce((a,b) => a + b.totalWithSubsidy, 0);
 
-      if (filtered.length === 0) {
-        summary.innerHTML = "<i>No records to summarize.</i>";
-        if (summaryChart) summaryChart.destroy();
-        return;
-      }
-
-      const totalLiters = filtered.reduce((sum, h) => sum + h.used, 0);
-      const totalPaid = filtered.reduce((sum, h) => sum + h.paid, 0);
-      const totalSubsidy = filtered.reduce((sum, h) => sum + h.subsidyAmount, 0);
-
-      summary.innerHTML = `
-        Total Transactions: ${filtered.length}<br>
-        Total Liters: ${totalLiters.toFixed(2)} L<br>
-        Total Paid: RM ${totalPaid.toFixed(2)}<br>
-        Total Subsidy: RM ${totalSubsidy.toFixed(2)}
+      document.getElementById('summaryText').innerHTML = `
+        <b>Total Records:</b> ${filtered.length}<br>
+        <b>Total Liters Used:</b> ${totalUsed.toFixed(2)} L<br>
+        <b>Total Paid:</b> RM ${totalPaid.toFixed(2)}<br>
+        <b>Total Subsidy:</b> RM ${totalSubsidy.toFixed(2)}<br>
+        <b>Total After Subsidy:</b> RM ${totalAfter.toFixed(2)}
       `;
 
-      const ctx = document.getElementById('summaryChart');
-      if (summaryChart) summaryChart.destroy();
-      summaryChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: ['Total Paid', 'Total Subsidy'],
-          datasets: [{
-            data: [totalPaid, totalSubsidy],
-            backgroundColor: ['#007bff', '#28a745'],
-          }]
-        },
+      const ctx = document.getElementById('summaryChart').getContext('2d');
+      const data = {
+        labels: ["Subsidy", "Paid by User"],
+        datasets: [{
+          data: [totalSubsidy, totalAfter],
+          backgroundColor: ["#28a745", "#007bff"]
+        }]
+      };
+
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'pie',
+        data,
         options: {
-          responsive: true,
-          plugins: {
-            legend: { position: 'bottom' },
-          }
+          plugins: { legend: { position: 'bottom' } }
         }
       });
     }
 
-    // ===== Navbar =====
-    function switchPage(page, el) {
-      document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
-      document.getElementById('page-' + page).classList.add('active-page');
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-      el.classList.add('active');
-    }
-
-    // ===== Service Worker =====
+    // PWA
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('service-worker.js');
     }
